@@ -58,13 +58,10 @@ class DeepMIL(torch.nn.Module):
             A_U = self.attention_U(MIL_features)
             A = self.attention_weights(A_V * A_U)
             A = torch.transpose(A, 1, -1)
-            A = F.softmax(A, dim=-1)  
+            A = F.softmax(A, dim=-1)
             M = torch.matmul(A, MIL_features)
             x = self.fc2(M)
             x = self.relu(x)
             x = self.dropout(x)
             out = self.sigmoid(self.fc_out(x))
             return out
-
-
-    

@@ -39,8 +39,8 @@ def train_ch(model, train_loader, val_loader, criterion, optimizer, n_epochs,reg
             #print(x.shape)
             # Forward pass
             output = model(x)[:,0]
-            if i%6==0:
-                print(output,target)
+            # if i%6==0:
+            #     print(output,target)
             # Loss computation
             loss = criterion(output,target)
             # addinitonal loss to add importance to annotations
@@ -59,10 +59,12 @@ def train_ch(model, train_loader, val_loader, criterion, optimizer, n_epochs,reg
         _, train_metrics = test_ch(model, train_loader, criterion,reg_lambda,ann_lambda)
         _, val_metrics = test_ch(model, val_loader, criterion,reg_lambda,ann_lambda)
 
-        print('Epoch %i/%i: train loss = %f, train AUC = %f, val loss = %f, val AUC = %f'
+        print('Epoch %i/%i: train loss = %f, train BA = %f, train AUC = %f, val loss = %f, val BA = %f, val AUC = %f'
               % (epoch, n_epochs,train_metrics['mean_loss'],
+                 train_metrics['balanced_accuracy'],
                  train_metrics['AUC'],val_metrics['mean_loss'],
-                    val_metrics['AUC']))
+                 val_metrics['balanced_accuracy'],
+                 val_metrics['AUC']))
         print()
 
         if val_metrics['AUC'] > val_best_auc:
@@ -103,7 +105,7 @@ def test_ch(model, data_loader, criterion, reg_lambda, ann_lambda,test=False):
     with torch.no_grad():
         for i, data in enumerate(data_loader, 0):
             x = data[0]
-            
+
             outputs = model(x)[:,0]
             if not test:
                 #labels, is_ann = data[1], data[2]
@@ -178,10 +180,12 @@ def train_DMIL(model, train_loader, val_loader, criterion, optimizer, n_epochs,a
         _, train_metrics = test_DMIL(model, train_loader, criterion,ann_lambda)
         _, val_metrics = test_DMIL(model, val_loader, criterion,ann_lambda)
 
-        print('Epoch %i/%i: train loss = %f, train AUC = %f, val loss = %f, val AUC = %f'
+        print('Epoch %i/%i: train loss = %f, train BA = %f, train AUC = %f, val loss = %f, val BA = %f, val AUC = %f'
               % (epoch, n_epochs,train_metrics['mean_loss'],
+                 train_metrics['balanced_accuracy'],
                  train_metrics['AUC'],val_metrics['mean_loss'],
-                    val_metrics['AUC']))
+                 val_metrics['balanced_accuracy'],
+                 val_metrics['AUC']))
         print()
 
         if val_metrics['AUC'] > val_best_auc:

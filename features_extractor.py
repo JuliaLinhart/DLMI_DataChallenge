@@ -82,13 +82,13 @@ if __name__ == "__main__":
 
     #patient_filenames_train = [train_dir / Path(str(idx)) for idx in train_output["ID"]]
 
-    patient_filenames_train = [train_dir / Path(str(idx)) for idx in train_output["ID"]]
+    patient_filenames_test = [test_dir / Path(str(idx)) for idx in test_output["ID"]]
 
 
     # list of all photos per patients
     photos_patients=[]
 
-    for patient_path in  tqdm(patient_filenames_train):
+    for patient_path in  tqdm(patient_filenames_test):
 
         photos_patients.append( [patient_path / Path(str(f)) for f in listdir(patient_path) if isfile(join(patient_path, f))] )
 
@@ -102,14 +102,14 @@ if __name__ == "__main__":
             module.relu = nn.Identity()
     newmodel.eval()
 
-    for i,idx in enumerate(train_output["ID"]): # for all patients
+    for i,idx in enumerate(test_output["ID"]): # for all patients
         print(idx)
         features =get_features(photos_patients[i]) # of size 2048 *194
         print(features.shape)
         df = pd.DataFrame(data=features)
         # output_path = args.data_dir / "testset\features\{})".format(str(idx))
-        df.to_csv(r"/Users/julialinhart/Documents/MVA/DLMI/DLMI_DataChallenge/data/trainset/features/{}".format(str(idx)))
+        df.to_csv(r"/Users/julialinhart/Documents/MVA/DLMI/DLMI_DataChallenge/data/testset/features/{}".format(str(idx)))
 
-    print("train features exctracted")
+    print("test features exctracted")
 
     labels_train = train_output["LABEL"].values

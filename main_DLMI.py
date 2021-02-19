@@ -48,8 +48,8 @@ def get_features(filenames):
     for i,f in enumerate(filenames):
         patient_features = pd.read_csv(f,index_col=False).values
         patient_features = patient_features[:,1:] #REMOVE fist colomn of index
-        if i%30==0:
-            print(patient_features,patient_features.shape)
+        # if i%30==0:
+            # print(patient_features,patient_features.shape)
 
         features.append(patient_features)
 
@@ -78,9 +78,9 @@ if __name__ == "__main__":
     test_output = pd.read_csv(test_output_filename)
 
     # list of all patients paths
-    patient_filenames_train = [train_dir /"features" / Path(str(idx)+ ")" ) for idx in train_output["ID"]]
+    patient_filenames_train = [train_dir /"features" / Path(str(idx)) for idx in train_output["ID"]]
 
-    patient_filenames_test = [test_dir  /"features" / Path(str(idx)+ ")" ) for idx in test_output["ID"]]
+    patient_filenames_test = [test_dir  /"features" / Path(str(idx)) for idx in test_output["ID"]]
 
     #print(patient_filenames_train)
 
@@ -112,7 +112,6 @@ if __name__ == "__main__":
     #(labels_train_torch)
     #is_annotated_train_torch = torch.Tensor(np.array(is_annotated_train)[:,None])
     features_test_torch = torch.Tensor(features_test)
-    print("train",features_train_torch.shape, "test",features_test_torch.shape,'label',labels_train_torch .shape)
 
      # define data loaders for pytorch model and split training set into train and validation sets
     dataset_train = TensorDataset(features_train_torch,labels_train_torch) #is_annotated_train_torch) # create your datset
