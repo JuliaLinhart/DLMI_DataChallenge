@@ -108,7 +108,7 @@ if __name__ == "__main__":
         print(features.shape)
         df = pd.DataFrame(data=features)
         # output_path = args.data_dir / "testset\features\{})".format(str(idx))
-        df.to_csv(r"/Users/julialinhart/Documents/MVA/DLMI/Challenge/data/trainset/features/{}".format(str(idx)))
+        df.to_csv(r"/Users/julialinhart/Documents/MVA/DLMI/DLMI_DataChallenge/data/trainset/features/{}".format(str(idx)))
 
     print("train features exctracted")
 
