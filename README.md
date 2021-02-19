@@ -1,4 +1,4 @@
-# DMLI Data Challenge
+# DLMI Data Challenge
 MVA 2020/21 - ENS Paris-Saclay
 
 https://www.kaggle.com/c/3md3070-dlmi/overview 
