@@ -102,7 +102,6 @@ if __name__ == "__main__":
 
     # Get the labels
     labels_train = train_output["LABEL"].values
-    print(labels_train)
 
     #assert len(filenames_train) == len(labels_train)
     # transform to tensor
@@ -131,9 +130,9 @@ if __name__ == "__main__":
 
 
     if args.model == 'CHOWDER':
-        print('CHOWDER Model parameters: batch_size = {}, lr = {}, weight_decay {}, convolution l2-reg = {}, annotation importance = {}'.format(args.batch_size,args.lr,args.weight_decay,args.reg_lambda,args.ann_lambda))
+        print('CHOWDER Model parameters: batch_size = {}, lr = {}, weight_decay {}, convolution l2-reg = {}'.format(args.batch_size,args.lr,args.weight_decay,args.reg_lambda))
     elif args.model == 'DeepMIL':
-        print('DeepMIL Model parameters: batch_size = {}, lr = {}, weight_decay {}, annotation importance = {}'.format(args.batch_size,args.lr,args.weight_decay))#,args.ann_lambda))
+        print('DeepMIL Model parameters: batch_size = {}, lr = {}, weight_decay {}'.format(args.batch_size,args.lr,args.weight_decay))#,args.ann_lambda))
     print()
     # train and evaluate chowder-ensemble model
     ensemble_probs = np.zeros(len(dataset_test))
@@ -162,20 +161,20 @@ if __name__ == "__main__":
 
         print('Model {} successfully trained'.format(i))
 
-       # evaluate model on test set
-        #print('Inference on test set...')
-        #if args.model == 'CHOWDER':
-         #   results_df, _ = test_ch(best_model,test_loader,criterion,reg_lambda=args.reg_lambda,ann_lambda=args.ann_lambda,test=True)
-        #elif args.model == 'DeepMIL':
-        #    results_df, _ = test_DMIL(best_model,test_loader,criterion,ann_lambda=args.ann_lambda,test=True)
-        #else:
-        #    print('model not defined')
+        # evaluate model on test set
+        print('Inference on test set...')
+        if args.model == 'CHOWDER':
+           results_df, _ = test_ch(best_model,test_loader,criterion,reg_lambda=args.reg_lambda,ann_lambda=args.ann_lambda,test=True)
+        elif args.model == 'DeepMIL':
+           results_df, _ = test_DMIL(best_model,test_loader,criterion,ann_lambda=args.ann_lambda,test=True)
+        else:
+           print('model not defined')
 
-       # print('Model {} successfully evaluated'.format(i))
-       # print()
-       # probs = results_df['proba']
-       # ensemble_probs=ensemble_probs+probs
-    #preds_test = ensemble_probs/args.n_models
+        print('Model {} successfully evaluated'.format(i))
+        print()
+        probs = results_df['proba']
+        ensemble_probs=ensemble_probs+probs
+    preds_test = ensemble_probs/args.n_models
 
     #save train/val history of one model
     #history = pd.DataFrame.from_dict(metrics)
@@ -183,14 +182,15 @@ if __name__ == "__main__":
     #print('Training history saved.')
     #print()
     # Check that predictions are in [0, 1]
-   # assert np.max(preds_test) <= 1.0
-   # assert np.min(preds_test) >= 0.0
+    assert np.max(preds_test) <= 1.0
+    assert np.min(preds_test) >= 0.0
 
     # -------------------------------------------------------------------------
     # Write the predictions in a csv file, to export them in the suitable format
     # to the data challenge platform
-    #ids_number_test = [i.split("ID_")[1] for i in ids_test]
-    #test_output = pd.DataFrame({"ID": ids_number_test, "Target": preds_test})
-    #test_output.set_index("ID", inplace=True)
-    #test_output.to_csv(args.data_dir / "preds_test_deepMil_1_ann.csv")
-    #print('Results saved!')
+    ids_number_test = [str(idx) for idx in test_output["ID"]]
+    test_output = pd.DataFrame({"ID": ids_number_test, "Predicted": np.round(preds_test)})
+    test_output.astype({"ID": str, "Predicted": int})
+    test_output.set_index("ID", inplace=True)
+    test_output.to_csv(args.data_dir / "preds_test_DeepMIL_E50.csv")
+    print('Results saved!')

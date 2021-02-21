@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class CHOWDER(torch.nn.Module):
-        def __init__(self, input_size=2048, R=5,neurons=[200,100],p=0.5):
+        def __init__(self, input_size=2048, R=5,neurons=[200,100],p=0.1):
             super(CHOWDER, self).__init__()
             self.input_size = input_size
             self.R = R
@@ -21,16 +21,20 @@ class CHOWDER(torch.nn.Module):
             top_features = aggregated_features.topk(self.R)[0]
             neg_evidence = aggregated_features.topk(self.R,largest=False)[0]
             MIL_features = torch.cat((top_features,neg_evidence),dim=2)
+            # print('MIL features: ',MIL_features)
             x = self.fc1(MIL_features)
             x = self.sigmoid(x)
+            # print('fc1: ',x)
             x = self.fc2(x)
             x = self.sigmoid(x)
-            x = self.dropout(x)
+            # print('fc2: ',x)
+            # x = self.dropout(x)
             out = self.sigmoid(self.fc_out(x))
+            # print('fc_out: ',x)
             return out
 
 class DeepMIL(torch.nn.Module):
-        def __init__(self, input_size=2048, attention=128,neurons=64,p=0.5):
+        def __init__(self, input_size=2048, attention=128,neurons=64,p=0.1):
             super(DeepMIL, self).__init__()
             self.input_size = input_size
             self.attention = attention

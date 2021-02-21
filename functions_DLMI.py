@@ -22,12 +22,12 @@ def train_ch(model, train_loader, val_loader, criterion, optimizer, n_epochs,reg
         best_model: (nn.Module) the trained neural network
     """
     best_model = deepcopy(model)
-    val_best_auc = 0
+    val_best_ba = 0
 
     train_losses = []
-    train_aucs = []
+    train_bas = []
     val_losses = []
-    val_aucs = []
+    val_bas = []
 
     for epoch in range(n_epochs):
         model.train()
@@ -67,16 +67,16 @@ def train_ch(model, train_loader, val_loader, criterion, optimizer, n_epochs,reg
                  val_metrics['AUC']))
         print()
 
-        if val_metrics['AUC'] > val_best_auc:
+        if val_metrics['balanced_accuracy'] > val_best_ba:
             best_model = deepcopy(model)
-            val_best_auc = val_metrics['AUC']
+            val_best_ba = val_metrics['balanced_accuracy']
 
         train_losses.append(train_metrics['mean_loss'])
-        train_aucs.append(train_metrics['AUC'])
+        train_bas.append(train_metrics['balanced_accuracy'])
         val_losses.append(val_metrics['mean_loss'])
-        val_aucs.append(val_metrics['AUC'])
-    metrics = {'train_losses':train_losses,'train_aucs':train_aucs,
-                'val_losses':val_losses,'val_aucs':val_aucs}
+        val_bas.append(val_metrics['balanced_accuracy'])
+    metrics = {'train_losses':train_losses,'train_bas':train_bas,
+                'val_losses':val_losses,'val_bas':val_bas}
 
     return best_model, metrics
 
@@ -120,6 +120,7 @@ def test_ch(model, data_loader, criterion, reg_lambda, ann_lambda,test=False):
                 total_loss += loss.item()
 
             preds = np.round(outputs.detach())
+            # print(outputs)
 
             for k in range(data[0].size(0)):
                 row = [k,outputs[k,0].item(),preds[k,0].item()]
@@ -161,15 +162,15 @@ def train_DMIL(model, train_loader, val_loader, criterion, optimizer, n_epochs,a
         model.train()
         for i, data in enumerate(train_loader, 0):
             # Retrieve mini-batch
-            x,target,is_ann = data[0] ,data[1], data[2]
+            x,target = data[0] ,data[1]
             # Forward pass
             output = model(x)[:,0]
             # Loss computation
             loss = criterion(output,target)
-            # addinitonal loss to add importance to annotations
-            loss_ann = criterion(is_ann*output,target*is_ann)
+            # # addinitonal loss to add importance to annotations
+            # loss_ann = criterion(is_ann*output,target*is_ann)
 
-            loss+= ann_lambda*loss_ann
+            # loss+= ann_lambda*loss_ann
             # Backpropagation (gradient computation)
             loss.backward()
             # Parameter update
@@ -228,11 +229,11 @@ def test_DMIL(model, data_loader, criterion, ann_lambda,test=False):
             x = data[0]
             outputs = model(x)[:,0]
             if not test:
-                labels, is_ann = data[1], data[2]
+                labels = data[1]
                 loss = criterion(outputs, labels)
-                loss_ann = criterion(outputs*is_ann,labels*is_ann)
+                # loss_ann = criterion(outputs*is_ann,labels*is_ann)
 
-                loss+= ann_lambda*loss_ann
+                # loss+= ann_lambda*loss_ann
 
                 total_loss += loss.item()
 
