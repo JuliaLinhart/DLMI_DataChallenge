@@ -39,6 +39,8 @@ parser.add_argument("--model", required=True, type=str,
                     help="chosen model (CHOWDER or DeepMIL)")
 parser.add_argument("--lymph_count_features", default=False, type=bool,
                     help="add lymph count features")
+parser.add_argument("--lymph_count_weights", default=False, type=bool,
+                    help="add lymph count probs as weights for BCE loss")
 
 
 def get_features(filenames):
@@ -143,7 +145,7 @@ if __name__ == "__main__":
 
 
     if args.model == 'CHOWDER':
-        print('CHOWDER Model parameters: batch_size = {}, lr = {}, weight_decay {}, convolution l2-reg = {}, lymph_count features = {}'.format(args.batch_size,args.lr,args.weight_decay,args.reg_lambda,args.lymph_count_features))
+        print('CHOWDER Model parameters: batch_size = {}, lr = {}, weight_decay {}, convolution l2-reg = {}, lymph_count features = {}, lymph_count weights = {}'.format(args.batch_size,args.lr,args.weight_decay,args.reg_lambda,args.lymph_count_features, args.lymph_count_weights))
     elif args.model == 'DeepMIL':
         print('DeepMIL Model parameters: batch_size = {}, lr = {}, weight_decay {}'.format(args.batch_size,args.lr,args.weight_decay))#,args.ann_lambda))
     print()
@@ -166,7 +168,7 @@ if __name__ == "__main__":
         print('Training model {}/{} ...'.format(i,args.n_models-1))
         print()
         if args.model == 'CHOWDER':
-            best_model,metrics= train_ch(model, train_loader, val_loader, criterion, optimizer, n_epochs=args.num_epochs,reg_lambda=args.reg_lambda,ann_lambda=args.ann_lambda)
+            best_model,metrics= train_ch(model, train_loader, val_loader, criterion, optimizer, n_epochs=args.num_epochs,reg_lambda=args.reg_lambda,lymph_count_weights=args.lymph_count_weights)
         elif args.model == 'DeepMIL':
             best_model,metrics = train_DMIL(model, train_loader, val_loader, criterion, optimizer, n_epochs=args.num_epochs,ann_lambda=args.ann_lambda)
         else:
@@ -177,7 +179,7 @@ if __name__ == "__main__":
         # evaluate model on test set
         print('Inference on test set...')
         if args.model == 'CHOWDER':
-           results_df, _ = test_ch(best_model,test_loader,criterion,reg_lambda=args.reg_lambda,ann_lambda=args.ann_lambda,test=True)
+           results_df, _ = test_ch(best_model,test_loader,criterion,reg_lambda=args.reg_lambda,lymph_count_weights=args.lymph_count_weights,test=True)
         elif args.model == 'DeepMIL':
            results_df, _ = test_DMIL(best_model,test_loader,criterion,ann_lambda=args.ann_lambda,test=True)
         else:
@@ -205,5 +207,5 @@ if __name__ == "__main__":
     test_output = pd.DataFrame({"ID": ids_number_test, "Predicted": np.round(preds_test)})
     test_output.astype({"ID": str, "Predicted": int})
     test_output.set_index("ID", inplace=True)
-    test_output.to_csv(args.save_dir / "preds_test_ChowderLymph_E50.csv")
+    test_output.to_csv(args.save_dir / "preds_test_LWChowder_E50.csv")
     print('Results saved!')

@@ -7,7 +7,7 @@ from sklearn.metrics import roc_auc_score
 
 
 
-def train_ch(model, train_loader, val_loader, criterion, optimizer, n_epochs,reg_lambda,ann_lambda):
+def train_ch(model, train_loader, val_loader, criterion, optimizer, n_epochs,reg_lambda,lymph_count_weights):
     """
     train the model
 
@@ -42,6 +42,9 @@ def train_ch(model, train_loader, val_loader, criterion, optimizer, n_epochs,reg
             # if i%6==0:
             #     print(output,target)
             # Loss computation
+            if lymph_count_weights:
+                criterion.weight = l_count_probs[:,0]*target + (1-l_count_probs[:,0])*(1-target)
+
             loss = criterion(output,target)
             # addinitonal loss to add importance to annotations
             #####loss_ann = criterion(is_ann*output,target*is_ann)
@@ -56,8 +59,8 @@ def train_ch(model, train_loader, val_loader, criterion, optimizer, n_epochs,reg
             # Erase previous gradients
             optimizer.zero_grad()
 
-        _, train_metrics = test_ch(model, train_loader, criterion,reg_lambda,ann_lambda)
-        _, val_metrics = test_ch(model, val_loader, criterion,reg_lambda,ann_lambda)
+        _, train_metrics = test_ch(model, train_loader, criterion,reg_lambda,lymph_count_weights)
+        _, val_metrics = test_ch(model, val_loader, criterion,reg_lambda,lymph_count_weights)
 
         print('Epoch %i/%i: train loss = %f, train BA = %f, train AUC = %f, val loss = %f, val BA = %f, val AUC = %f'
               % (epoch, n_epochs,train_metrics['mean_loss'],
@@ -81,7 +84,7 @@ def train_ch(model, train_loader, val_loader, criterion, optimizer, n_epochs,reg
     return best_model, metrics
 
 
-def test_ch(model, data_loader, criterion, reg_lambda, ann_lambda,test=False):
+def test_ch(model, data_loader, criterion, reg_lambda, lymph_count_weights,test=False):
     """
     Evaluate/ test model
 
@@ -109,6 +112,8 @@ def test_ch(model, data_loader, criterion, reg_lambda, ann_lambda,test=False):
                 #labels, is_ann = data[1], data[2]
                 labels,l_count_probs = data[1], data[2]
                 outputs = model(x,l_count_probs)[:,0]
+                if lymph_count_weights:
+                    criterion.weight = l_count_probs[:,0]*labels + (1-l_count_probs[:,0])*(1-labels)
                 loss = criterion(outputs, labels)
                 #loss_ann = criterion(outputs*is_ann,labels*is_ann)
                 # L2 regularization for convolutional weights
