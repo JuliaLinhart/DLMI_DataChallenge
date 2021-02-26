@@ -34,11 +34,11 @@ def train_ch(model, train_loader, val_loader, criterion, optimizer, n_epochs,reg
         for i, data in enumerate(train_loader, 0):
             # Retrieve mini-batch
             #x,target ,is_ann = data[0] ,data[1]#, data[2]
-            x,target  = data[0] ,data[1]
+            x,target,l_count_probs  = data[0] ,data[1],data[2]
 
             #print(x.shape)
             # Forward pass
-            output = model(x)[:,0]
+            output = model(x,l_count_probs)[:,0]
             # if i%6==0:
             #     print(output,target)
             # Loss computation
@@ -105,11 +105,10 @@ def test_ch(model, data_loader, criterion, reg_lambda, ann_lambda,test=False):
     with torch.no_grad():
         for i, data in enumerate(data_loader, 0):
             x = data[0]
-
-            outputs = model(x)[:,0]
             if not test:
                 #labels, is_ann = data[1], data[2]
-                labels = data[1]#, data[2]
+                labels,l_count_probs = data[1], data[2]
+                outputs = model(x,l_count_probs)[:,0]
                 loss = criterion(outputs, labels)
                 #loss_ann = criterion(outputs*is_ann,labels*is_ann)
                 # L2 regularization for convolutional weights
@@ -118,6 +117,9 @@ def test_ch(model, data_loader, criterion, reg_lambda, ann_lambda,test=False):
                 loss+= reg_lambda*l2_reg #+ ann_lambda*loss_ann
 
                 total_loss += loss.item()
+            else:
+                l_count_probs = data[1]
+                outputs = model(x,l_count_probs)[:,0]
 
             preds = np.round(outputs.detach())
             # print(outputs)

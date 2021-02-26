@@ -4,6 +4,9 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+import sklearn
+import sklearn.linear_model
+
 import torch
 import torch.nn as nn
 from torch.utils.data import TensorDataset, DataLoader
@@ -18,20 +21,24 @@ from os.path import isfile, join
 parser = argparse.ArgumentParser()
 parser.add_argument("--data_dir", required=True, type=Path,
                     help="directory where data is stored")
-parser.add_argument("--num_epochs", default=30, type=int,
+parser.add_argument("--save_dir", default='results', type=Path,
+                    help="directory where results are saved")
+parser.add_argument("--num_epochs", default=100, type=int,
                     help="Number of epochs for training")
 parser.add_argument("--batch_size", default=10, type=int,help="Mini-batch size")
-parser.add_argument("--reg_lambda", default=0.5, type=float,
+parser.add_argument("--reg_lambda", default=0.1, type=float,
                     help="L2-regularization trade-off parameter for conv weights")
-parser.add_argument("--lr", default=0.0001, type=float,help="Learning Rate")
+parser.add_argument("--lr", default=0.0002, type=float,help="Learning Rate")
 parser.add_argument("--weight_decay", default=0.0, type=float,help="weight decay for Adam optimizer")
 
-parser.add_argument("--n_models", default=1, type=int,
+parser.add_argument("--n_models", default=50, type=int,
                     help="number of chowder models for ensemble prediction")
 parser.add_argument("--ann_lambda", default=0.5, type=float,
                     help="additional importance for annotated patients")
 parser.add_argument("--model", required=True, type=str,
                     help="chosen model (CHOWDER or DeepMIL)")
+parser.add_argument("--lymph_count_features", default=False, type=bool,
+                    help="add lymph count features")
 
 
 def get_features(filenames):
@@ -59,6 +66,22 @@ def get_features(filenames):
     print("features extracted",features.shape)
     return features
 
+def get_logreg_probs(features_train,features_test,labels_train):
+    """Logistic Regression results for a training set of features
+
+    Args:
+        features_train: np array of training features
+        labels_train: np array of corresponding labels
+
+    Returns:
+        binary classification probabilities for eachh training feature
+    """
+    estimator = sklearn.linear_model.LogisticRegression(penalty="l2", C=1.0, solver="liblinear")
+    estimator.fit(features_train, labels_train)
+    probs_train = estimator.predict_proba(features_train)[:,1]
+    probs_test = estimator.predict_proba(features_test)[:,1]
+    return probs_train,probs_test
+
 if __name__ == "__main__":
     args = parser.parse_args()
 
@@ -82,39 +105,29 @@ if __name__ == "__main__":
 
     patient_filenames_test = [test_dir  /"features" / Path(str(idx)) for idx in test_output["ID"]]
 
-    #print(patient_filenames_train)
-
-    # list of all features per patients
-    #features_train_patients=[]
-    #features_test_patients=[]
-
-    #for i, patient_path in  enumerate(patient_filenames_train):
-
-    #    features_train_patients.append( [patient_path  /"features"/ Path(str(f) +')' ) for f in listdir(patient_path) if isfile(join(patient_path, f))] )
-
-    #for i, patient_path in  enumerate(patient_filenames_test):
-
-    #    features_test_patients.append( [patient_path  /"features"/ Path(str(f) +')' ) for f in listdir(patient_path) if isfile(join(patient_path, f))] )
-
-
-    features_train = get_features(patient_filenames_train)
-    features_test = get_features(patient_filenames_test)
-
     # Get the labels
     labels_train = train_output["LABEL"].values
 
-    #assert len(filenames_train) == len(labels_train)
-    # transform to tensor
+    # get extracted image features
+    features_train = get_features(patient_filenames_train)
+    features_test = get_features(patient_filenames_test)
 
+    # Get Classification probabilities based on Lymph_count features
+    l_count_train = np.array(train_output['LYMPH_COUNT']).reshape(-1,1)
+    l_count_test = np.array(test_output['LYMPH_COUNT']).reshape(-1,1)
+    l_count_probs_train,l_count_probs_test = get_logreg_probs(l_count_train,l_count_test,labels_train)
+
+    # convert to torch tensors
     features_train_torch = torch.Tensor(features_train)
     labels_train_torch = torch.Tensor(labels_train[:,None])
-    #(labels_train_torch)
-    #is_annotated_train_torch = torch.Tensor(np.array(is_annotated_train)[:,None])
+    l_count_probs_train_torch = torch.Tensor(l_count_probs_train[:,None,None])
+
     features_test_torch = torch.Tensor(features_test)
+    l_count_probs_test_torch = torch.Tensor(l_count_probs_test[:,None,None])
 
      # define data loaders for pytorch model and split training set into train and validation sets
-    dataset_train = TensorDataset(features_train_torch,labels_train_torch) #is_annotated_train_torch) # create your datset
-    dataset_test = TensorDataset(features_test_torch) # create your datset
+    dataset_train = TensorDataset(features_train_torch,labels_train_torch,l_count_probs_train_torch) # create your datset
+    dataset_test = TensorDataset(features_test_torch,l_count_probs_test_torch) # create your datset
 
     train_len = int(0.7*len(dataset_train))
     valid_len = len(dataset_train) - train_len
@@ -130,7 +143,7 @@ if __name__ == "__main__":
 
 
     if args.model == 'CHOWDER':
-        print('CHOWDER Model parameters: batch_size = {}, lr = {}, weight_decay {}, convolution l2-reg = {}'.format(args.batch_size,args.lr,args.weight_decay,args.reg_lambda))
+        print('CHOWDER Model parameters: batch_size = {}, lr = {}, weight_decay {}, convolution l2-reg = {}, lymph_count features = {}'.format(args.batch_size,args.lr,args.weight_decay,args.reg_lambda,args.lymph_count_features))
     elif args.model == 'DeepMIL':
         print('DeepMIL Model parameters: batch_size = {}, lr = {}, weight_decay {}'.format(args.batch_size,args.lr,args.weight_decay))#,args.ann_lambda))
     print()
@@ -140,7 +153,7 @@ if __name__ == "__main__":
     for i in range(args.n_models):
         #define model
         if args.model == 'CHOWDER':
-            model = CHOWDER()
+            model = CHOWDER(lymph_count=args.lymph_count_features)
         elif args.model == 'DeepMIL':
             model = DeepMIL()
         else:
@@ -192,5 +205,5 @@ if __name__ == "__main__":
     test_output = pd.DataFrame({"ID": ids_number_test, "Predicted": np.round(preds_test)})
     test_output.astype({"ID": str, "Predicted": int})
     test_output.set_index("ID", inplace=True)
-    test_output.to_csv(args.data_dir / "preds_test_DeepMIL_E50.csv")
+    test_output.to_csv(args.save_dir / "preds_test_ChowderLymph_E50.csv")
     print('Results saved!')
