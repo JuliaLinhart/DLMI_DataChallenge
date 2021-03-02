@@ -5,6 +5,8 @@ import pandas as pd
 from copy import deepcopy
 from sklearn.metrics import roc_auc_score
 
+from datetime import datetime, date 
+
 
 
 def train_ch(model, train_loader, val_loader, criterion, optimizer, n_epochs,reg_lambda,lymph_count_weights):
@@ -34,16 +36,20 @@ def train_ch(model, train_loader, val_loader, criterion, optimizer, n_epochs,reg
         for i, data in enumerate(train_loader, 0):
             # Retrieve mini-batch
             #x,target ,is_ann = data[0] ,data[1]#, data[2]
-            x,target,l_count_probs  = data[0] ,data[1],data[2]
+            x,target,features  = data[0] ,data[1],data[2]
+
+            # get lynph_count,age, sex
+            
+            #print(features.shape)
 
             #print(x.shape)
             # Forward pass
-            output = model(x,l_count_probs)[:,0]
+            output = model(x,features)[:,0]
             # if i%6==0:
             #     print(output,target)
             # Loss computation
-            if lymph_count_weights:
-                criterion.weight = l_count_probs[:,0]*target + (1-l_count_probs[:,0])*(1-target)
+            #if lymph_count_weights:
+            #    criterion.weight = l_count_probs[:,0]*target + (1-l_count_probs[:,0])*(1-target)
 
             loss = criterion(output,target)
             # addinitonal loss to add importance to annotations
@@ -84,7 +90,7 @@ def train_ch(model, train_loader, val_loader, criterion, optimizer, n_epochs,reg
     return best_model, metrics
 
 
-def test_ch(model, data_loader, criterion, reg_lambda, lymph_count_weights,test=False):
+def test_ch(model, data_loader, criterion, reg_lambda, lymph_count_weights, test=False):
     """
     Evaluate/ test model
 
@@ -110,10 +116,13 @@ def test_ch(model, data_loader, criterion, reg_lambda, lymph_count_weights,test=
             x = data[0]
             if not test:
                 #labels, is_ann = data[1], data[2]
-                labels,l_count_probs = data[1], data[2]
-                outputs = model(x,l_count_probs)[:,0]
-                if lymph_count_weights:
-                    criterion.weight = l_count_probs[:,0]*labels + (1-l_count_probs[:,0])*(1-labels)
+                labels,features = data[1], data[2]
+                
+
+                
+                outputs = model(x,features)[:,0]
+                #if lymph_count_weights:
+                #    criterion.weight = l_count_probs[:,0]*labels + (1-l_count_probs[:,0])*(1-labels)
                 loss = criterion(outputs, labels)
                 #loss_ann = criterion(outputs*is_ann,labels*is_ann)
                 # L2 regularization for convolutional weights
@@ -123,8 +132,8 @@ def test_ch(model, data_loader, criterion, reg_lambda, lymph_count_weights,test=
 
                 total_loss += loss.item()
             else:
-                l_count_probs = data[1]
-                outputs = model(x,l_count_probs)[:,0]
+                features = data[1]
+                outputs = model(x,features)[:,0]
 
             preds = np.round(outputs.detach())
             # print(outputs)
@@ -289,3 +298,54 @@ def compute_metrics(ground_truth, prediction):
 
 
     return metrics_dict
+
+
+
+
+
+def preprocess(data):
+
+    """
+    preprocessing of features to get float and int
+
+
+    """
+
+    def sex(data):
+        init=np.zeros(data.shape[0],dtype=int)
+        init[data=="M"]=np.int(1)
+        return init
+
+    def age(born): 
+        age=np.zeros(born.shape[0])
+        for i,dob in enumerate(born):
+            #print("dob",dob)
+            if dob.find("/")!=-1: 
+                
+                
+                dob = datetime.strptime(dob, "%m/%d/%Y").date() 
+                today = date.today() 
+                dob= today.year - dob.year - ((today.month,  
+                                        today.day) < (dob.month,  
+                                                        dob.day)) 
+                
+                age[i]=dob
+                
+            else :
+            
+                dob = datetime.strptime(dob, "%d-%m-%Y").date() 
+                today = date.today() 
+                dob= today.year - dob.year - ((today.month,  
+                                        today.day) < (dob.month,  
+                                                        dob.day)) 
+                
+                age[i]=dob
+        return age
+
+    data["AGE"]=age(data["DOB"])
+    data["SEX"]=sex(data["GENDER"])
+    # normalization of features
+    data['LYMPH_COUNT']=(data['LYMPH_COUNT'] -  data['LYMPH_COUNT'].mean())/ data['LYMPH_COUNT'].std()
+    data["AGE"]=(data["AGE"] -  data["AGE"].mean())/ data["AGE"].std()
+
+    return data

@@ -1,3 +1,4 @@
+
 import argparse
 from pathlib import Path
 
@@ -12,7 +13,7 @@ import torch.nn as nn
 from torch.utils.data import TensorDataset, DataLoader
 
 from models_DLMI import CHOWDER, DeepMIL
-from functions_DLMI import train_ch,test_ch,train_DMIL,test_DMIL
+from functions_DLMI import train_ch,test_ch,train_DMIL,test_DMIL , preprocess
 
 from os import listdir
 from os.path import isfile, join
@@ -36,12 +37,50 @@ parser.add_argument("--n_models", default=50, type=int,
 parser.add_argument("--ann_lambda", default=0.5, type=float,
                     help="additional importance for annotated patients")
 parser.add_argument("--model", required=True, type=str,
-                    help="chosen model (CHOWDER or DeepMIL)")
-parser.add_argument("--lymph_count_features", default=False, type=bool,
+                    help="chosen model (CHOWDER or DeepMIL)") 
+parser.add_argument("--lymph_count_features", default=True, type=bool,
                     help="add lymph count features")
 parser.add_argument("--lymph_count_weights", default=False, type=bool,
                     help="add lymph count probs as weights for BCE loss")
 
+parser.add_argument("--name", required=True, type=str,
+                    help="Julia or Pierre") 
+
+
+
+
+def bonne_humeur():
+    print("\n***************************************")
+    print("Bonjour, \n                 ")  
+    print("  ( )       | |( ) ( )    | ")
+    print("   _  _   _ | | _  ____   | ")
+    print("  | || | | || || |/_   |  | ")
+    print("  | || |_| || || |/ (| |  | ")
+    print("  | | \__,_||_||_|\__,_|  | ")
+    print(" (__/                       ")
+    print("                            ")
+    print("Etonant de te retouver sur ce language barbar avec ce drole de jolie prenom...")
+
+    print("                            ")
+    print("***************************************")
+    print(" ")
+    print("        .....           ..... ")
+    print("     ,ad8PPPP88b,     ,d88PPPP8ba, ")
+    print("    d8P'      'Y8b, ,d8P'      'Y8b ")
+    print("  dP'           '8a8'           `Yd ")
+    print("  8(              '              )8 ")
+    print("  I8                             8I  ")
+    print("   Yb,                         ,dP  ")
+    print("   '8a,                     ,a8'    ")
+    print("      '8a,                 ,a8'     ")
+    print("        'Yba             adP'           Signed EDC (cest pas moi o:) ")
+    print("          `Y8a         a8P'  ")
+    print("           `88,     ,88'  ")
+    print("              '8b   d8'  ")
+    print("               '8b d8'   ")
+    print("                `888'    ")
+    print("                          ")
+    print(" ******************* CE CODE S'EXECUTE POUR L'INSTANT SANS ENCOMBRE ******************* \n")
 
 def get_features(filenames):
     """Load and aggregate the resnet features by the average.
@@ -96,16 +135,36 @@ if __name__ == "__main__":
 
     train_output_filename = train_dir / "trainset_true.csv"
 
-    train_output = pd.read_csv(train_output_filename)
+    
+    
+
 
     test_output_filename = args.data_dir /"testset" /"testset_data.csv"
 
     test_output = pd.read_csv(test_output_filename)
+    train_output=pd.read_csv(train_output_filename )
+
+    if args.name=='Julia':
 
     # list of all patients paths
-    patient_filenames_train = [train_dir /"features" / Path(str(idx)) for idx in train_output["ID"]]
+        patient_filenames_train = [train_dir /"features" / Path(str(idx)) for idx in train_output["ID"]]
 
-    patient_filenames_test = [test_dir  /"features" / Path(str(idx)) for idx in test_output["ID"]]
+        patient_filenames_test = [test_dir  /"features" / Path(str(idx)) for idx in test_output["ID"]]
+    else :
+        patient_filenames_train = [train_dir /"features" / Path(str(idx)+")") for idx in train_output["ID"]]
+
+        patient_filenames_test = [test_dir  /"features" / Path(str(idx)+")") for idx in test_output["ID"]]
+
+
+    
+
+    # Preprocess data
+    train_output=preprocess(train_output)
+    test_output=preprocess(test_output)
+    
+    additional_features_train=np.array(train_output[['LYMPH_COUNT','AGE','SEX']]).reshape(-1,3)
+
+    additional_features_test=np.array(test_output[['LYMPH_COUNT','AGE','SEX']]).reshape(-1,3)
 
     # Get the labels
     labels_train = train_output["LABEL"].values
@@ -117,19 +176,35 @@ if __name__ == "__main__":
     # Get Classification probabilities based on Lymph_count features
     l_count_train = np.array(train_output['LYMPH_COUNT']).reshape(-1,1)
     l_count_test = np.array(test_output['LYMPH_COUNT']).reshape(-1,1)
-    l_count_probs_train,l_count_probs_test = get_logreg_probs(l_count_train,l_count_test,labels_train)
+
+    #l_count_probs_train,l_count_probs_test = get_logreg_probs(l_count_train,l_count_test,labels_train)  ### non juste les features pas le log des probs
+
+    
+
+    
+
+    bonne_humeur()
 
     # convert to torch tensors
     features_train_torch = torch.Tensor(features_train)
     labels_train_torch = torch.Tensor(labels_train[:,None])
-    l_count_probs_train_torch = torch.Tensor(l_count_probs_train[:,None,None])
+    #l_count_probs_train_torch = torch.Tensor(l_count_probs_train[:,None,None])
+
+    l_count_train_torch=torch.Tensor(l_count_train )
+    l_count_test_torch=torch.Tensor(l_count_test ) 
+
+    add_features_pytorch_train=torch.Tensor(additional_features_train)
+    add_features_pytorch_test=torch.Tensor(additional_features_test)
+
+
 
     features_test_torch = torch.Tensor(features_test)
-    l_count_probs_test_torch = torch.Tensor(l_count_probs_test[:,None,None])
+    #l_count_probs_test_torch = torch.Tensor(l_count_probs_test[:,None,None])
+
 
      # define data loaders for pytorch model and split training set into train and validation sets
-    dataset_train = TensorDataset(features_train_torch,labels_train_torch,l_count_probs_train_torch) # create your datset
-    dataset_test = TensorDataset(features_test_torch,l_count_probs_test_torch) # create your datset
+    dataset_train = TensorDataset(features_train_torch,labels_train_torch,add_features_pytorch_train) # create your datset
+    dataset_test = TensorDataset(features_test_torch,add_features_pytorch_test) # create your datset
 
     train_len = int(0.7*len(dataset_train))
     valid_len = len(dataset_train) - train_len
