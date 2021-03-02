@@ -183,7 +183,7 @@ if __name__ == "__main__":
 
     
 
-    bonne_humeur()
+    #bonne_humeur()
 
     # convert to torch tensors
     features_train_torch = torch.Tensor(features_train)
