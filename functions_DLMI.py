@@ -5,11 +5,11 @@ import pandas as pd
 from copy import deepcopy
 from sklearn.metrics import roc_auc_score
 
-from datetime import datetime, date 
+from datetime import datetime, date
 
 
 
-def train_ch(model, train_loader, val_loader, criterion, optimizer, n_epochs,reg_lambda,lymph_count_weights):
+def train_ch(model, train_loader, val_loader, criterion, optimizer, n_epochs,reg_lambda):
     """
     train the model
 
@@ -39,18 +39,13 @@ def train_ch(model, train_loader, val_loader, criterion, optimizer, n_epochs,reg
             x,target,features  = data[0] ,data[1],data[2]
 
             # get lynph_count,age, sex
-            
             #print(features.shape)
-
             #print(x.shape)
+
             # Forward pass
             output = model(x,features)[:,0]
-            # if i%6==0:
-            #     print(output,target)
-            # Loss computation
-            #if lymph_count_weights:
-            #    criterion.weight = l_count_probs[:,0]*target + (1-l_count_probs[:,0])*(1-target)
 
+            # Loss computation
             loss = criterion(output,target)
             # addinitonal loss to add importance to annotations
             #####loss_ann = criterion(is_ann*output,target*is_ann)
@@ -65,8 +60,8 @@ def train_ch(model, train_loader, val_loader, criterion, optimizer, n_epochs,reg
             # Erase previous gradients
             optimizer.zero_grad()
 
-        _, train_metrics = test_ch(model, train_loader, criterion,reg_lambda,lymph_count_weights)
-        _, val_metrics = test_ch(model, val_loader, criterion,reg_lambda,lymph_count_weights)
+        _, train_metrics = test_ch(model, train_loader, criterion,reg_lambda)
+        _, val_metrics = test_ch(model, val_loader, criterion,reg_lambda)
 
         print('Epoch %i/%i: train loss = %f, train BA = %f, train AUC = %f, val loss = %f, val BA = %f, val AUC = %f'
               % (epoch, n_epochs,train_metrics['mean_loss'],
@@ -90,7 +85,7 @@ def train_ch(model, train_loader, val_loader, criterion, optimizer, n_epochs,reg
     return best_model, metrics
 
 
-def test_ch(model, data_loader, criterion, reg_lambda, lymph_count_weights, test=False):
+def test_ch(model, data_loader, criterion, reg_lambda, test=False):
     """
     Evaluate/ test model
 
@@ -117,14 +112,12 @@ def test_ch(model, data_loader, criterion, reg_lambda, lymph_count_weights, test
             if not test:
                 #labels, is_ann = data[1], data[2]
                 labels,features = data[1], data[2]
-                
 
-                
                 outputs = model(x,features)[:,0]
-                #if lymph_count_weights:
-                #    criterion.weight = l_count_probs[:,0]*labels + (1-l_count_probs[:,0])*(1-labels)
+
                 loss = criterion(outputs, labels)
                 #loss_ann = criterion(outputs*is_ann,labels*is_ann)
+
                 # L2 regularization for convolutional weights
                 conv_weights = model.state_dict()['conv1d.weight']
                 l2_reg = conv_weights.norm(2)
@@ -136,7 +129,6 @@ def test_ch(model, data_loader, criterion, reg_lambda, lymph_count_weights, test
                 outputs = model(x,features)[:,0]
 
             preds = np.round(outputs.detach())
-            # print(outputs)
 
             for k in range(data[0].size(0)):
                 row = [k,outputs[k,0].item(),preds[k,0].item()]
@@ -183,10 +175,11 @@ def train_DMIL(model, train_loader, val_loader, criterion, optimizer, n_epochs,a
             output = model(x)[:,0]
             # Loss computation
             loss = criterion(output,target)
+
             # # addinitonal loss to add importance to annotations
             # loss_ann = criterion(is_ann*output,target*is_ann)
-
             # loss+= ann_lambda*loss_ann
+
             # Backpropagation (gradient computation)
             loss.backward()
             # Parameter update
@@ -248,9 +241,7 @@ def test_DMIL(model, data_loader, criterion, ann_lambda,test=False):
                 labels = data[1]
                 loss = criterion(outputs, labels)
                 # loss_ann = criterion(outputs*is_ann,labels*is_ann)
-
                 # loss+= ann_lambda*loss_ann
-
                 total_loss += loss.item()
 
             preds = np.round(outputs.detach())
@@ -316,29 +307,29 @@ def preprocess(data):
         init[data=="M"]=np.int(1)
         return init
 
-    def age(born): 
+    def age(born):
         age=np.zeros(born.shape[0])
         for i,dob in enumerate(born):
             #print("dob",dob)
-            if dob.find("/")!=-1: 
-                
-                
-                dob = datetime.strptime(dob, "%m/%d/%Y").date() 
-                today = date.today() 
-                dob= today.year - dob.year - ((today.month,  
-                                        today.day) < (dob.month,  
-                                                        dob.day)) 
-                
+            if dob.find("/")!=-1:
+
+
+                dob = datetime.strptime(dob, "%m/%d/%Y").date()
+                today = date.today()
+                dob= today.year - dob.year - ((today.month,
+                                        today.day) < (dob.month,
+                                                        dob.day))
+
                 age[i]=dob
-                
+
             else :
-            
-                dob = datetime.strptime(dob, "%d-%m-%Y").date() 
-                today = date.today() 
-                dob= today.year - dob.year - ((today.month,  
-                                        today.day) < (dob.month,  
-                                                        dob.day)) 
-                
+
+                dob = datetime.strptime(dob, "%d-%m-%Y").date()
+                today = date.today()
+                dob= today.year - dob.year - ((today.month,
+                                        today.day) < (dob.month,
+                                                        dob.day))
+
                 age[i]=dob
         return age
 

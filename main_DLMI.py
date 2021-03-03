@@ -37,21 +37,20 @@ parser.add_argument("--n_models", default=50, type=int,
 parser.add_argument("--ann_lambda", default=0.5, type=float,
                     help="additional importance for annotated patients")
 parser.add_argument("--model", required=True, type=str,
-                    help="chosen model (CHOWDER or DeepMIL)") 
+                    help="chosen model (CHOWDER or DeepMIL)")
 parser.add_argument("--lymph_count_features", default=True, type=bool,
                     help="add lymph count features")
-parser.add_argument("--lymph_count_weights", default=False, type=bool,
-                    help="add lymph count probs as weights for BCE loss")
+
 
 parser.add_argument("--name", required=True, type=str,
-                    help="Julia or Pierre") 
+                    help="Julia or Pierre")
 
 
 
 
 def bonne_humeur():
     print("\n***************************************")
-    print("Bonjour, \n                 ")  
+    print("Bonjour, \n                 ")
     print("  ( )       | |( ) ( )    | ")
     print("   _  _   _ | | _  ____   | ")
     print("  | || | | || || |/_   |  | ")
@@ -135,8 +134,8 @@ if __name__ == "__main__":
 
     train_output_filename = train_dir / "trainset_true.csv"
 
-    
-    
+
+
 
 
     test_output_filename = args.data_dir /"testset" /"testset_data.csv"
@@ -156,12 +155,12 @@ if __name__ == "__main__":
         patient_filenames_test = [test_dir  /"features" / Path(str(idx)+")") for idx in test_output["ID"]]
 
 
-    
+
 
     # Preprocess data
     train_output=preprocess(train_output)
     test_output=preprocess(test_output)
-    
+
     additional_features_train=np.array(train_output[['LYMPH_COUNT','AGE','SEX']]).reshape(-1,3)
 
     additional_features_test=np.array(test_output[['LYMPH_COUNT','AGE','SEX']]).reshape(-1,3)
@@ -179,9 +178,9 @@ if __name__ == "__main__":
 
     #l_count_probs_train,l_count_probs_test = get_logreg_probs(l_count_train,l_count_test,labels_train)  ### non juste les features pas le log des probs
 
-    
 
-    
+
+
 
     #bonne_humeur()
 
@@ -190,8 +189,8 @@ if __name__ == "__main__":
     labels_train_torch = torch.Tensor(labels_train[:,None])
     #l_count_probs_train_torch = torch.Tensor(l_count_probs_train[:,None,None])
 
-    l_count_train_torch=torch.Tensor(l_count_train )
-    l_count_test_torch=torch.Tensor(l_count_test ) 
+    # l_count_train_torch=torch.Tensor(l_count_train )
+    # l_count_test_torch=torch.Tensor(l_count_test )
 
     add_features_pytorch_train=torch.Tensor(additional_features_train)
     add_features_pytorch_test=torch.Tensor(additional_features_test)
@@ -220,7 +219,7 @@ if __name__ == "__main__":
 
 
     if args.model == 'CHOWDER':
-        print('CHOWDER Model parameters: batch_size = {}, lr = {}, weight_decay {}, convolution l2-reg = {}, lymph_count features = {}, lymph_count weights = {}'.format(args.batch_size,args.lr,args.weight_decay,args.reg_lambda,args.lymph_count_features, args.lymph_count_weights))
+        print('CHOWDER Model parameters: batch_size = {}, lr = {}, weight_decay {}, convolution l2-reg = {}, lymph_count features = {}'.format(args.batch_size,args.lr,args.weight_decay,args.reg_lambda,args.lymph_count_features))
     elif args.model == 'DeepMIL':
         print('DeepMIL Model parameters: batch_size = {}, lr = {}, weight_decay {}'.format(args.batch_size,args.lr,args.weight_decay))#,args.ann_lambda))
     print()
@@ -243,7 +242,7 @@ if __name__ == "__main__":
         print('Training model {}/{} ...'.format(i,args.n_models-1))
         print()
         if args.model == 'CHOWDER':
-            best_model,metrics= train_ch(model, train_loader, val_loader, criterion, optimizer, n_epochs=args.num_epochs,reg_lambda=args.reg_lambda,lymph_count_weights=args.lymph_count_weights)
+            best_model,metrics= train_ch(model, train_loader, val_loader, criterion, optimizer, n_epochs=args.num_epochs,reg_lambda=args.reg_lambda)
         elif args.model == 'DeepMIL':
             best_model,metrics = train_DMIL(model, train_loader, val_loader, criterion, optimizer, n_epochs=args.num_epochs,ann_lambda=args.ann_lambda)
         else:
@@ -254,7 +253,7 @@ if __name__ == "__main__":
         # evaluate model on test set
         print('Inference on test set...')
         if args.model == 'CHOWDER':
-           results_df, _ = test_ch(best_model,test_loader,criterion,reg_lambda=args.reg_lambda,lymph_count_weights=args.lymph_count_weights,test=True)
+           results_df, _ = test_ch(best_model,test_loader,criterion,reg_lambda=args.reg_lambda,test=True)
         elif args.model == 'DeepMIL':
            results_df, _ = test_DMIL(best_model,test_loader,criterion,ann_lambda=args.ann_lambda,test=True)
         else:
@@ -280,7 +279,7 @@ if __name__ == "__main__":
     # to the data challenge platform
     ids_number_test = [str(idx) for idx in test_output["ID"]]
     test_output = pd.DataFrame({"ID": ids_number_test, "Predicted": np.round(preds_test)})
-    test_output.astype({"ID": str, "Predicted": int})
+    test_output = test_output.astype({"ID": str, "Predicted": int})
     test_output.set_index("ID", inplace=True)
-    test_output.to_csv(args.save_dir / "preds_test_LWChowder_E50.csv")
+    test_output.to_csv(args.save_dir / "preds_test_LWChowder_E10.csv")
     print('Results saved!')
