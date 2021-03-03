@@ -3,28 +3,37 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class CHOWDER(torch.nn.Module):
-        def __init__(self, input_size=2048, R=5,neurons=[200,100],p=0.1,lymph_count = False):
+        def __init__(self, input_size=2048, R=5,neurons=[200,100],p=0.1,lymph_count = False,num_embed_features=4):
             super(CHOWDER, self).__init__()
             self.input_size = input_size
             self.R = R
             self.neurons  = neurons
             self.p = p
             self.lymph_count = lymph_count
+            self.num_embed_features=num_embed_features
 
             self.conv1d = nn.Conv1d(self.input_size,1,1)
-            self.fc1 = nn.Linear(self.R*2+1*self.lymph_count, self.neurons[0])
+            self.fc1 = nn.Linear(self.R*2+1*self.num_embed_features, self.neurons[0]) # a modifier en fonction du nb de features
             self.fc2 = nn.Linear(self.neurons[0], self.neurons[1])
             self.fc_out = nn.Linear(self.neurons[1], 1)
             self.sigmoid = nn.Sigmoid()
             self.dropout = nn.Dropout(self.p)
+            # additional features
+            self.fc_lymp1=nn.Linear(3,4)
+            self.fc_lymp2=nn.Linear(4,num_embed_features)
 
-        def forward(self, in_features,l_count_probs):
+        def forward(self, in_features,add_features):
             aggregated_features =self.conv1d(in_features)
             top_features = aggregated_features.topk(self.R)[0]
             neg_evidence = aggregated_features.topk(self.R,largest=False)[0]
             MIL_features = torch.cat((top_features,neg_evidence),dim=2)
             if self.lymph_count:
-                MIL_features = torch.cat((MIL_features,l_count_probs),dim=2)
+                features=self.fc_lymp1(add_features)
+                prob=self.sigmoid(features)
+                features_lymp=self.fc_lymp2(prob)
+                features_lymp=features_lymp.reshape(-1,1,self.num_embed_features)
+                #print(MIL_features.shape,feature_lymp.shape)
+                MIL_features = torch.cat((MIL_features,features_lymp),dim=2)
 
             x = self.fc1(MIL_features)
             x = self.sigmoid(x)
