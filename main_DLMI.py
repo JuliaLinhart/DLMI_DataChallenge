@@ -18,6 +18,8 @@ from functions_DLMI import train_ch,test_ch,train_DMIL,test_DMIL , preprocess
 from os import listdir
 from os.path import isfile, join
 
+import random
+
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--data_dir", required=True, type=Path,
@@ -281,5 +283,5 @@ if __name__ == "__main__":
     test_output = pd.DataFrame({"ID": ids_number_test, "Predicted": np.round(preds_test)})
     test_output = test_output.astype({"ID": str, "Predicted": int})
     test_output.set_index("ID", inplace=True)
-    test_output.to_csv(args.save_dir / "preds_test_LWChowder_E10.csv")
+    test_output.to_csv(args.save_dir / "preds_test_LWChowder_E10_lrsched_reg04_seed.csv")
     print('Results saved!')

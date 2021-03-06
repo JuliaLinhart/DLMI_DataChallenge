@@ -73,7 +73,7 @@ def train_ch(model, train_loader, val_loader, criterion, optimizer, scheduler, n
                  val_metrics['AUC']))
         print()
 
-        if val_metrics['balanced_accuracy'] > val_best_ba:
+        if val_metrics['balanced_accuracy'] >= val_best_ba:
             best_model = deepcopy(model)
             val_best_ba = val_metrics['balanced_accuracy']
 

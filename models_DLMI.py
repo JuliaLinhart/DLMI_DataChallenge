@@ -66,7 +66,7 @@ class DeepMIL(torch.nn.Module):
             self.fc2 = nn.Linear(self.attention,self.neurons)
             # =============
             # VAE ici!
-            # ============= 
+            # =============
             self.fc_out = nn.Linear(self.neurons,1)
             self.relu = nn.ReLU()
             self.sigmoid = nn.Sigmoid()
