@@ -237,14 +237,14 @@ if __name__ == "__main__":
 
         criterion = nn.BCELoss()
         optimizer = torch.optim.Adam(model.parameters(),lr=args.lr,weight_decay=args.weight_decay)
-
+        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.6)
         #train model
         print('Training model {}/{} ...'.format(i,args.n_models-1))
         print()
         if args.model == 'CHOWDER':
-            best_model,metrics= train_ch(model, train_loader, val_loader, criterion, optimizer, n_epochs=args.num_epochs,reg_lambda=args.reg_lambda)
+            best_model,metrics= train_ch(model, train_loader, val_loader, criterion, optimizer, scheduler, n_epochs=args.num_epochs,reg_lambda=args.reg_lambda)
         elif args.model == 'DeepMIL':
-            best_model,metrics = train_DMIL(model, train_loader, val_loader, criterion, optimizer, n_epochs=args.num_epochs,ann_lambda=args.ann_lambda)
+            best_model,metrics = train_DMIL(model, train_loader, val_loader, criterion, optimizer, scheduler, n_epochs=args.num_epochs,ann_lambda=args.ann_lambda)
         else:
             print('model not defined')
 

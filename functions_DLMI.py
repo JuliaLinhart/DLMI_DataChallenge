@@ -9,7 +9,7 @@ from datetime import datetime, date
 
 
 
-def train_ch(model, train_loader, val_loader, criterion, optimizer, n_epochs,reg_lambda):
+def train_ch(model, train_loader, val_loader, criterion, optimizer, scheduler, n_epochs,reg_lambda):
     """
     train the model
 
@@ -59,6 +59,8 @@ def train_ch(model, train_loader, val_loader, criterion, optimizer, n_epochs,reg
             optimizer.step()
             # Erase previous gradients
             optimizer.zero_grad()
+        # learning rate step
+        scheduler.step()
 
         _, train_metrics = test_ch(model, train_loader, criterion,reg_lambda)
         _, val_metrics = test_ch(model, val_loader, criterion,reg_lambda)
@@ -144,7 +146,7 @@ def test_ch(model, data_loader, criterion, reg_lambda, test=False):
     results_df.reset_index(inplace=True, drop=True)
     return results_df, results_metrics
 
-def train_DMIL(model, train_loader, val_loader, criterion, optimizer, n_epochs,ann_lambda):
+def train_DMIL(model, train_loader, val_loader, criterion, optimizer, scheduler, n_epochs,ann_lambda):
     """
     train the model
 
@@ -186,6 +188,8 @@ def train_DMIL(model, train_loader, val_loader, criterion, optimizer, n_epochs,a
             optimizer.step()
             # Erase previous gradients
             optimizer.zero_grad()
+            # # learning rate step
+            # scheduler.step()
 
         _, train_metrics = test_DMIL(model, train_loader, criterion,ann_lambda)
         _, val_metrics = test_DMIL(model, val_loader, criterion,ann_lambda)
