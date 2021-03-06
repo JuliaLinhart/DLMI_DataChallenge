@@ -13,14 +13,14 @@ class CHOWDER(torch.nn.Module):
             self.num_embed_features=num_embed_features
 
             self.conv1d = nn.Conv1d(self.input_size,1,1)
-            self.fc1 = nn.Linear(self.R*2+1*self.num_embed_features, self.neurons[0]) # a modifier en fonction du nb de features
+            self.fc1 = nn.Linear(self.R*2+3, self.neurons[0]) # a modifier en fonction du nb de features
             self.fc2 = nn.Linear(self.neurons[0], self.neurons[1])
             self.fc_out = nn.Linear(self.neurons[1], 1)
             self.sigmoid = nn.Sigmoid()
             self.dropout = nn.Dropout(self.p)
             # additional features
-            self.fc_lymp1=nn.Linear(3,4)
-            self.fc_lymp2=nn.Linear(4,num_embed_features)
+            # self.fc_lymp1=nn.Linear(3,self.num_embed_features)
+            # self.fc_lymp2=nn.Linear(self.num_embed_features,3)
 
         def forward(self, in_features,add_features):
             aggregated_features =self.conv1d(in_features)
@@ -28,10 +28,10 @@ class CHOWDER(torch.nn.Module):
             neg_evidence = aggregated_features.topk(self.R,largest=False)[0]
             MIL_features = torch.cat((top_features,neg_evidence),dim=2)
             if self.lymph_count:
-                features=self.fc_lymp1(add_features)
-                prob=self.sigmoid(features)
-                features_lymp=self.fc_lymp2(prob)
-                features_lymp=features_lymp.reshape(-1,1,self.num_embed_features)
+                # features=self.fc_lymp1(add_features)
+                # prob=self.sigmoid(features)
+                # features_lymp=self.fc_lymp2(prob)
+                features_lymp=add_features.reshape(-1,1,3)
                 #print(MIL_features.shape,feature_lymp.shape)
                 MIL_features = torch.cat((MIL_features,features_lymp),dim=2)
 
@@ -64,6 +64,9 @@ class DeepMIL(torch.nn.Module):
             )
             self.attention_weights = nn.Linear(self.input_size,1)
             self.fc2 = nn.Linear(self.attention,self.neurons)
+            # =============
+            # VAE ici!
+            # ============= 
             self.fc_out = nn.Linear(self.neurons,1)
             self.relu = nn.ReLU()
             self.sigmoid = nn.Sigmoid()
