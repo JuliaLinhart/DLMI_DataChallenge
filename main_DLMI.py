@@ -196,7 +196,7 @@ if __name__ == "__main__":
 
     add_features_pytorch_train=torch.Tensor(additional_features_train)
     add_features_pytorch_test=torch.Tensor(additional_features_test)
-
+    n_add_features = add_features_pytorch_train.size(1)
 
 
     features_test_torch = torch.Tensor(features_test)
@@ -231,15 +231,15 @@ if __name__ == "__main__":
     for i in range(args.n_models):
         #define model
         if args.model == 'CHOWDER':
-            model = CHOWDER(lymph_count=args.lymph_count_features)
+            model = CHOWDER(lymph_count=args.lymph_count_features,num_add_features = n_add_features)
         elif args.model == 'DeepMIL':
-            model = DeepMIL()
+            model = DeepMIL(lymph_count=args.lymph_count_features,num_add_features = n_add_features)
         else:
             print('model not defined')
 
         criterion = nn.BCELoss()
         optimizer = torch.optim.Adam(model.parameters(),lr=args.lr,weight_decay=args.weight_decay)
-        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.6)
+        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.6)
         #train model
         print('Training model {}/{} ...'.format(i,args.n_models-1))
         print()
@@ -283,5 +283,5 @@ if __name__ == "__main__":
     test_output = pd.DataFrame({"ID": ids_number_test, "Predicted": np.round(preds_test)})
     test_output = test_output.astype({"ID": str, "Predicted": int})
     test_output.set_index("ID", inplace=True)
-    test_output.to_csv(args.save_dir / "preds_test_LWChowder_E10_lrsched_reg04_seed.csv")
+    test_output.to_csv(args.save_dir / "preds_test_LWDeepMIL_E10_lrsched_wd005.csv")
     print('Results saved!')

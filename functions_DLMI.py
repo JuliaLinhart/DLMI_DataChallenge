@@ -161,20 +161,20 @@ def train_DMIL(model, train_loader, val_loader, criterion, optimizer, scheduler,
         best_model: (nn.Module) the trained neural network
     """
     best_model = deepcopy(model)
-    val_best_auc = 0
+    val_best_ba = 0
 
     train_losses = []
-    train_aucs = []
+    train_bas = []
     val_losses = []
-    val_aucs = []
+    val_bas = []
 
     for epoch in range(n_epochs):
         model.train()
         for i, data in enumerate(train_loader, 0):
             # Retrieve mini-batch
-            x,target = data[0] ,data[1]
+            x,target,features  = data[0] ,data[1],data[2]
             # Forward pass
-            output = model(x)[:,0]
+            output = model(x,features)[:,0]
             # Loss computation
             loss = criterion(output,target)
 
@@ -188,8 +188,8 @@ def train_DMIL(model, train_loader, val_loader, criterion, optimizer, scheduler,
             optimizer.step()
             # Erase previous gradients
             optimizer.zero_grad()
-            # # learning rate step
-            # scheduler.step()
+        # learning rate step
+        scheduler.step()
 
         _, train_metrics = test_DMIL(model, train_loader, criterion,ann_lambda)
         _, val_metrics = test_DMIL(model, val_loader, criterion,ann_lambda)
@@ -202,16 +202,16 @@ def train_DMIL(model, train_loader, val_loader, criterion, optimizer, scheduler,
                  val_metrics['AUC']))
         print()
 
-        if val_metrics['AUC'] > val_best_auc:
+        if val_metrics['balanced_accuracy'] >= val_best_ba:
             best_model = deepcopy(model)
-            val_best_auc = val_metrics['AUC']
+            val_best_ba = val_metrics['balanced_accuracy']
 
         train_losses.append(train_metrics['mean_loss'])
-        train_aucs.append(train_metrics['AUC'])
+        train_bas.append(train_metrics['balanced_accuracy'])
         val_losses.append(val_metrics['mean_loss'])
-        val_aucs.append(val_metrics['AUC'])
-    metrics = {'train_losses':train_losses,'train_aucs':train_aucs,
-                'val_losses':val_losses,'val_aucs':val_aucs}
+        val_bas.append(val_metrics['balanced_accuracy'])
+    metrics = {'train_losses':train_losses,'train_bas':train_bas,
+                'val_losses':val_losses,'val_bas':val_bas}
 
     return best_model, metrics
 
@@ -240,13 +240,16 @@ def test_DMIL(model, data_loader, criterion, ann_lambda,test=False):
     with torch.no_grad():
         for i, data in enumerate(data_loader, 0):
             x = data[0]
-            outputs = model(x)[:,0]
             if not test:
-                labels = data[1]
+                labels,features = data[1], data[2]
+                outputs = model(x,features)[:,0]
                 loss = criterion(outputs, labels)
                 # loss_ann = criterion(outputs*is_ann,labels*is_ann)
                 # loss+= ann_lambda*loss_ann
                 total_loss += loss.item()
+            else:
+                features = data[1]
+                outputs = model(x,features)[:,0]
 
             preds = np.round(outputs.detach())
 
