@@ -1,4 +1,5 @@
 
+
 import argparse
 from pathlib import Path
 
@@ -12,8 +13,8 @@ import torch
 import torch.nn as nn
 from torch.utils.data import TensorDataset, DataLoader
 
-from models_DLMI import CHOWDER, DeepMIL
-from functions_DLMI import train_ch,test_ch,train_DMIL,test_DMIL , preprocess
+from models_DLMI import CHOWDER, DeepMIL,auto_DeepMIL
+from functions_DLMI import train_ch,test_ch,train_DMIL,test_DMIL , preprocess, train_auto_DMIL,test_auto_DMIL
 
 from os import listdir
 from os.path import isfile, join
@@ -28,18 +29,18 @@ parser.add_argument("--save_dir", default='results', type=Path,
                     help="directory where results are saved")
 parser.add_argument("--num_epochs", default=100, type=int,
                     help="Number of epochs for training")
-parser.add_argument("--batch_size", default=10, type=int,help="Mini-batch size")
-parser.add_argument("--reg_lambda", default=0.1, type=float,
+parser.add_argument("--batch_size", default=15, type=int,help="Mini-batch size")
+parser.add_argument("--reg_lambda", default=0.1, type=float, #0.1 before
                     help="L2-regularization trade-off parameter for conv weights")
-parser.add_argument("--lr", default=0.0002, type=float,help="Learning Rate")
+parser.add_argument("--lr", default=0.001, type=float,help="Learning Rate")  # 0.0002
 parser.add_argument("--weight_decay", default=0.0, type=float,help="weight decay for Adam optimizer")
 
-parser.add_argument("--n_models", default=50, type=int,
+parser.add_argument("--n_models", default=1, type=int,
                     help="number of chowder models for ensemble prediction")
 parser.add_argument("--ann_lambda", default=0.5, type=float,
                     help="additional importance for annotated patients")
 parser.add_argument("--model", required=True, type=str,
-                    help="chosen model (CHOWDER or DeepMIL)")
+                    help="chosen model (CHOWDER or DeepMIL, auto_DeepMIL)")
 parser.add_argument("--lymph_count_features", default=True, type=bool,
                     help="add lymph count features")
 
@@ -224,6 +225,9 @@ if __name__ == "__main__":
         print('CHOWDER Model parameters: batch_size = {}, lr = {}, weight_decay {}, convolution l2-reg = {}, lymph_count features = {}'.format(args.batch_size,args.lr,args.weight_decay,args.reg_lambda,args.lymph_count_features))
     elif args.model == 'DeepMIL':
         print('DeepMIL Model parameters: batch_size = {}, lr = {}, weight_decay {}'.format(args.batch_size,args.lr,args.weight_decay))#,args.ann_lambda))
+    elif args.model == 'auto_DeepMIL':
+        print('auto_DeepMIL Model parameters: batch_size = {}, lr = {}, weight_decay {}'.format(args.batch_size,args.lr,args.weight_decay))#,args.ann_lambda))
+    print()
     print()
     # train and evaluate chowder-ensemble model
     ensemble_probs = np.zeros(len(dataset_test))
@@ -234,12 +238,14 @@ if __name__ == "__main__":
             model = CHOWDER(lymph_count=args.lymph_count_features,num_add_features = n_add_features)
         elif args.model == 'DeepMIL':
             model = DeepMIL(lymph_count=args.lymph_count_features,num_add_features = n_add_features)
+        elif args.model == 'auto_DeepMIL':
+            model = auto_DeepMIL(lymph_count=args.lymph_count_features,num_add_features = n_add_features)
         else:
             print('model not defined')
 
         criterion = nn.BCELoss()
         optimizer = torch.optim.Adam(model.parameters(),lr=args.lr,weight_decay=args.weight_decay)
-        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.6)
+        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=30, gamma=0.6)
         #train model
         print('Training model {}/{} ...'.format(i,args.n_models-1))
         print()
@@ -247,6 +253,8 @@ if __name__ == "__main__":
             best_model,metrics= train_ch(model, train_loader, val_loader, criterion, optimizer, scheduler, n_epochs=args.num_epochs,reg_lambda=args.reg_lambda)
         elif args.model == 'DeepMIL':
             best_model,metrics = train_DMIL(model, train_loader, val_loader, criterion, optimizer, scheduler, n_epochs=args.num_epochs,ann_lambda=args.ann_lambda)
+        elif args.model == 'auto_DeepMIL':
+            best_model,metrics = train_auto_DMIL(model, train_loader, val_loader, criterion, optimizer, scheduler, n_epochs=args.num_epochs,ann_lambda=args.ann_lambda)
         else:
             print('model not defined')
 
@@ -258,6 +266,9 @@ if __name__ == "__main__":
            results_df, _ = test_ch(best_model,test_loader,criterion,reg_lambda=args.reg_lambda,test=True)
         elif args.model == 'DeepMIL':
            results_df, _ = test_DMIL(best_model,test_loader,criterion,ann_lambda=args.ann_lambda,test=True)
+
+        elif args.model == 'auto_DeepMIL':
+           results_df, _ = test_auto_DMIL(best_model,test_loader,criterion,ann_lambda=args.ann_lambda,test=True)
         else:
            print('model not defined')
 
@@ -283,5 +294,6 @@ if __name__ == "__main__":
     test_output = pd.DataFrame({"ID": ids_number_test, "Predicted": np.round(preds_test)})
     test_output = test_output.astype({"ID": str, "Predicted": int})
     test_output.set_index("ID", inplace=True)
-    test_output.to_csv(args.save_dir / "preds_test_LWDeepMIL_E10_lrsched_wd005.csv")
+    test_output.to_csv(args.save_dir / "preds_test_LW_auto_DeepMIL_E10_lrsched_wd005.csv")
     print('Results saved!')
+ 
