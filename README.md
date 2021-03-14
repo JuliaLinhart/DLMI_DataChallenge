@@ -20,17 +20,21 @@ form the Challenge platform.
 
 ### Feature extraction
 To extract features, please create a folder named *features* in both, trainset and testset folders. Then execute the following command line:
+
 ```python features_extractor --data_dir <data_folder_name>```
 
 ### Model training + Submission Results
 First set the right step size and gamma parameter of the lr_scheduler in the *main_DLMI.py* file. Then run the following commandlines to reproduce the results for 
-- the **E-CHOWDER + AF model**:
+- **E-CHOWDER + AF model**:
+
 ```python main_DLMI.py --data_dir <data_folder_name> --model CHOWDER --batch_size 15 --num_epochs 100 --lr 0.001 --n_models 10 --reg_lambda 0.4 --lymph_count_features True --name Julia```
 
-- the **E-DeepMIL + AF model** (best submission scores):
+- **E-DeepMIL + AF model** (best submission scores):
+
 ```python main_DLMI.py --data_dir <data_folder_name> --model DeepMIL --batch_size 15 --num_epochs 50 --lr 0.001 --n_models 10 --lymph_count_features True --name Julia```
 
-- the **Variational E-DeepMIL + AF model**:
+- **Variational E-DeepMIL + AF model**:
+
 ```python main_DLMI.py --data_dir <data_folder_name> --model auto_DeepMIL --batch_size 15 --num_epochs 100 --lr 0.001 --n_models 1 --lymph_count_features True --name Julia```
 
 
