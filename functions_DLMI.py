@@ -36,24 +36,15 @@ def train_ch(model, train_loader, val_loader, criterion, optimizer, scheduler, n
         model.train()
         for i, data in enumerate(train_loader, 0):
             # Retrieve mini-batch
-            #x,target ,is_ann = data[0] ,data[1]#, data[2]
             x,target,features  = data[0] ,data[1],data[2]
-
-            # get lynph_count,age, sex
-            #print(features.shape)
-            #print(x.shape)
-
             # Forward pass
             output = model(x,features)[:,0]
-
             # Loss computation
             loss = criterion(output,target)
-            # addinitonal loss to add importance to annotations
-            #####loss_ann = criterion(is_ann*output,target*is_ann)
             # L2 regularization for convolutional weights
             conv_weights = model.state_dict()['conv1d.weight']
             l2_reg = conv_weights.norm(2)
-            loss+= reg_lambda*l2_reg #+### ann_lambda*loss_ann
+            loss+= reg_lambda*l2_reg
             # Backpropagation (gradient computation)
             loss.backward()
             # Parameter update
@@ -66,12 +57,11 @@ def train_ch(model, train_loader, val_loader, criterion, optimizer, scheduler, n
         _, train_metrics = test_ch(model, train_loader, criterion,reg_lambda)
         _, val_metrics = test_ch(model, val_loader, criterion,reg_lambda)
 
-        print('Epoch %i/%i: train loss = %f, train BA = %f, train AUC = %f, val loss = %f, val BA = %f, val AUC = %f'
+        print('Epoch %i/%i: train loss = %f, train BA = %f, val loss = %f, val BA = %f'
               % (epoch, n_epochs,train_metrics['mean_loss'],
                  train_metrics['balanced_accuracy'],
-                 train_metrics['AUC'],val_metrics['mean_loss'],
-                 val_metrics['balanced_accuracy'],
-                 val_metrics['AUC']))
+                 val_metrics['mean_loss'],
+                 val_metrics['balanced_accuracy']))
         print()
 
         if val_metrics['balanced_accuracy'] >= val_best_ba:
@@ -113,18 +103,13 @@ def test_ch(model, data_loader, criterion, reg_lambda, test=False):
         for i, data in enumerate(data_loader, 0):
             x = data[0]
             if not test:
-                #labels, is_ann = data[1], data[2]
                 labels,features = data[1], data[2]
-
                 outputs = model(x,features)[:,0]
-
                 loss = criterion(outputs, labels)
-                #loss_ann = criterion(outputs*is_ann,labels*is_ann)
-
                 # L2 regularization for convolutional weights
                 conv_weights = model.state_dict()['conv1d.weight']
                 l2_reg = conv_weights.norm(2)
-                loss+= reg_lambda*l2_reg #+ ann_lambda*loss_ann
+                loss+= reg_lambda*l2_reg
 
                 total_loss += loss.item()
             else:
@@ -147,7 +132,7 @@ def test_ch(model, data_loader, criterion, reg_lambda, test=False):
     results_df.reset_index(inplace=True, drop=True)
     return results_df, results_metrics
 
-def train_DMIL(model, train_loader, val_loader, criterion, optimizer, scheduler, n_epochs,ann_lambda):
+def train_DMIL(model, train_loader, val_loader, criterion, optimizer, scheduler, n_epochs):
     """
     train the model
 
@@ -178,11 +163,6 @@ def train_DMIL(model, train_loader, val_loader, criterion, optimizer, scheduler,
             output = model(x,features)[:,0]
             # Loss computation
             loss = criterion(output,target)
-
-            # # addinitonal loss to add importance to annotations
-            # loss_ann = criterion(is_ann*output,target*is_ann)
-            # loss+= ann_lambda*loss_ann
-
             # Backpropagation (gradient computation)
             loss.backward()
             # Parameter update
@@ -192,15 +172,14 @@ def train_DMIL(model, train_loader, val_loader, criterion, optimizer, scheduler,
         # learning rate step
         scheduler.step()
 
-        _, train_metrics = test_DMIL(model, train_loader, criterion,ann_lambda)
-        _, val_metrics = test_DMIL(model, val_loader, criterion,ann_lambda)
+        _, train_metrics = test_DMIL(model, train_loader, criterion)
+        _, val_metrics = test_DMIL(model, val_loader, criterion)
 
-        print('Epoch %i/%i: train loss = %f, train BA = %f, train AUC = %f, val loss = %f, val BA = %f, val AUC = %f'
+        print('Epoch %i/%i: train loss = %f, train BA = %f, val loss = %f, val BA = %f'
               % (epoch, n_epochs,train_metrics['mean_loss'],
                  train_metrics['balanced_accuracy'],
-                 train_metrics['AUC'],val_metrics['mean_loss'],
-                 val_metrics['balanced_accuracy'],
-                 val_metrics['AUC']))
+                 val_metrics['mean_loss'],
+                 val_metrics['balanced_accuracy']))
         print()
 
         if val_metrics['balanced_accuracy'] >= val_best_ba:
@@ -217,7 +196,7 @@ def train_DMIL(model, train_loader, val_loader, criterion, optimizer, scheduler,
     return best_model, metrics
 
 
-def test_DMIL(model, data_loader, criterion, ann_lambda,test=False):
+def test_DMIL(model, data_loader, criterion,test=False):
     """
     Evaluate/ test model
 
@@ -245,8 +224,6 @@ def test_DMIL(model, data_loader, criterion, ann_lambda,test=False):
                 labels,features = data[1], data[2]
                 outputs = model(x,features)[:,0]
                 loss = criterion(outputs, labels)
-                # loss_ann = criterion(outputs*is_ann,labels*is_ann)
-                # loss+= ann_lambda*loss_ann
                 total_loss += loss.item()
             else:
                 features = data[1]
@@ -298,18 +275,10 @@ def compute_metrics(ground_truth, prediction):
 
     return metrics_dict
 
-
-
-
-
 def preprocess(data):
-
     """
     preprocessing of features to get float and int
-
-
     """
-
     def sex(data):
         init=np.zeros(data.shape[0],dtype=int)
         init[data=="M"]=np.int(1)
@@ -349,15 +318,10 @@ def preprocess(data):
 
     return data
 
+########################### VAE ############################
 
 
-
-
-
-#######################################################   VAE
-
-
-def train_auto_DMIL(model, train_loader, val_loader, criterion, optimizer, scheduler, n_epochs,ann_lambda):
+def train_auto_DMIL(model, train_loader, val_loader, criterion, optimizer, scheduler, n_epochs):
     """
     train the model
 
@@ -386,18 +350,11 @@ def train_auto_DMIL(model, train_loader, val_loader, criterion, optimizer, sched
             x,target,features  = data[0] ,data[1],data[2]
             # Forward pass
             output,z,mu,logvar = model(x,features)
-            
             output=output[:,0]
-
-
+            # KullbackLeiblei divergence for VAE
             KLD=-0.5*torch.sum(1+logvar-mu.pow(2)-logvar.exp())
             # Loss computation
             loss = criterion(output,target)  + KLD
-
-            # # addinitonal loss to add importance to annotations
-            # loss_ann = criterion(is_ann*output,target*is_ann)
-            # loss+= ann_lambda*loss_ann
-
             # Backpropagation (gradient computation)
             loss.backward()
             # Parameter update
@@ -407,15 +364,14 @@ def train_auto_DMIL(model, train_loader, val_loader, criterion, optimizer, sched
         # learning rate step
         scheduler.step()
 
-        _, train_metrics = test_auto_DMIL(model, train_loader, criterion,ann_lambda)
-        _, val_metrics = test_auto_DMIL(model, val_loader, criterion,ann_lambda)
+        _, train_metrics = test_auto_DMIL(model, train_loader, criterion)
+        _, val_metrics = test_auto_DMIL(model, val_loader, criterion)
 
-        print('Epoch %i/%i: train loss = %f, train BA = %f, train AUC = %f, val loss = %f, val BA = %f, val AUC = %f'
+        print('Epoch %i/%i: train loss = %f, train BA = %f, val loss = %f, val BA = %f'
               % (epoch, n_epochs,train_metrics['mean_loss'],
                  train_metrics['balanced_accuracy'],
-                 train_metrics['AUC'],val_metrics['mean_loss'],
-                 val_metrics['balanced_accuracy'],
-                 val_metrics['AUC']))
+                 val_metrics['mean_loss'],
+                 val_metrics['balanced_accuracy']))
         print()
 
         if val_metrics['balanced_accuracy'] >= val_best_ba:
@@ -432,7 +388,7 @@ def train_auto_DMIL(model, train_loader, val_loader, criterion, optimizer, sched
     return best_model, metrics
 
 
-def test_auto_DMIL(model, data_loader, criterion, ann_lambda,test=False):
+def test_auto_DMIL(model, data_loader, criterion,test=False):
     """
     Evaluate/ test model
 
@@ -460,16 +416,10 @@ def test_auto_DMIL(model, data_loader, criterion, ann_lambda,test=False):
                 labels,features = data[1], data[2]
                 outputs,z,mu,logvar= model(x,features)
                 outputs=outputs[:,0]
-
+                # KullbackLeiblei divergence for VAE
                 KLD=-0.5*torch.sum(1+logvar-mu.pow(2)-logvar.exp())
-
-
                 loss = criterion(outputs, labels) +KLD
-
-                
-                # loss_ann = criterion(outputs*is_ann,labels*is_ann)
-                # loss+= ann_lambda*loss_ann
-                total_loss += loss.item()  
+                total_loss += loss.item()
             else:
                 features = data[1]
                 outputs,z,mu,logvar = model(x,features)
@@ -490,33 +440,3 @@ def test_auto_DMIL(model, data_loader, criterion, ann_lambda,test=False):
         results_metrics = None
     results_df.reset_index(inplace=True, drop=True)
     return results_df, results_metrics
-
-def compute_metrics(ground_truth, prediction):
-    """Computes the accuracy, sensitivity, specificity and balanced accuracy and AUC"""
-    tp = np.sum((prediction == 1) & (ground_truth == 1))
-    tn = np.sum((prediction == 0) & (ground_truth == 0))
-    fp = np.sum((prediction == 1) & (ground_truth == 0))
-    fn = np.sum((prediction == 0) & (ground_truth == 1))
-
-    metrics_dict = dict()
-    metrics_dict['accuracy'] = (tp + tn) / (tp + tn + fp + fn)
-
-    # Sensitivity
-    if tp + fn != 0:
-        metrics_dict['sensitivity'] = tp / (tp + fn)
-    else:
-        metrics_dict['sensitivity'] = 0.0
-
-    # Specificity
-    if fp + tn != 0:
-        metrics_dict['specificity'] = tn / (fp + tn)
-    else:
-        metrics_dict['specificity'] = 0.0
-
-    metrics_dict['balanced_accuracy'] = (metrics_dict['sensitivity'] + metrics_dict['specificity']) / 2
-
-    # auc
-    metrics_dict['AUC'] = roc_auc_score(ground_truth,prediction)
-
-
-    return metrics_dict

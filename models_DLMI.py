@@ -10,7 +10,7 @@ class CHOWDER(torch.nn.Module):
             self.neurons  = neurons
             self.p = p
             self.lymph_count = lymph_count
-            self.num_add_features = num_add_features
+            self.num_add_features = num_add_features*lymph_count
 
             self.conv1d = nn.Conv1d(self.input_size,1,1)
             self.fc1 = nn.Linear(self.R*2+self.num_add_features, self.neurons[0]) # a modifier en fonction du nb de features
@@ -18,32 +18,23 @@ class CHOWDER(torch.nn.Module):
             self.fc_out = nn.Linear(self.neurons[1], 1)
             self.sigmoid = nn.Sigmoid()
             self.dropout = nn.Dropout(self.p)
-            # additional features
-            # self.fc_lymp1=nn.Linear(3,self.num_embed_features)
-            # self.fc_lymp2=nn.Linear(self.num_embed_features,3)
 
         def forward(self, in_features,add_features):
             aggregated_features =self.conv1d(in_features)
             top_features = aggregated_features.topk(self.R)[0]
             neg_evidence = aggregated_features.topk(self.R,largest=False)[0]
             MIL_features = torch.cat((top_features,neg_evidence),dim=2)
+
             if self.lymph_count:
-                # features=self.fc_lymp1(add_features)
-                # prob=self.sigmoid(features)
-                # features_lymp=self.fc_lymp2(prob)
                 features_lymp=add_features.reshape(-1,1,self.num_add_features)
-                #print(MIL_features.shape,feature_lymp.shape)
                 MIL_features = torch.cat((MIL_features,features_lymp),dim=2)
 
             x = self.fc1(MIL_features)
             x = self.sigmoid(x)
-            # print('fc1: ',x)
             x = self.fc2(x)
             x = self.sigmoid(x)
-            # print('fc2: ',x)
-            # x = self.dropout(x)
+            x = self.dropout(x)
             out = self.sigmoid(self.fc_out(x))
-            # print('fc_out: ',x)
             return out
 
 class DeepMIL(torch.nn.Module):
@@ -54,10 +45,9 @@ class DeepMIL(torch.nn.Module):
             self.neurons = neurons
             self.p = p
             self.lymph_count = lymph_count
-            self.num_add_features = num_add_features
+            self.num_add_features = num_add_features*lymph_count
 
             self.fc1 = nn.Linear(self.input_size,self.attention)
-
             self.attention_V = nn.Sequential(
                 nn.Linear(self.attention, self.input_size),
                 nn.Tanh()
@@ -69,9 +59,7 @@ class DeepMIL(torch.nn.Module):
             self.attention_weights = nn.Linear(self.input_size,1)
 
             self.fc2 = nn.Linear(self.attention+self.num_add_features,self.neurons)
-            # =============
-            # VAE ici!
-            # =============
+
             self.fc_out = nn.Linear(self.neurons,1)
             self.relu = nn.ReLU()
             self.sigmoid = nn.Sigmoid()
@@ -104,11 +92,10 @@ class auto_DeepMIL(torch.nn.Module):
             self.neurons = neurons
             self.p = p
             self.lymph_count = lymph_count
-            self.num_add_features = num_add_features
+            self.num_add_features = num_add_features*lymph_count
             self.features_space_size=attention ### embbeding size
 
             self.fc1 = nn.Linear(self.input_size,self.attention)
-
             self.attention_V = nn.Sequential(
                 nn.Linear(self.attention, self.input_size),
                 nn.Tanh()
@@ -121,112 +108,45 @@ class auto_DeepMIL(torch.nn.Module):
 
             self.fc2 = nn.Linear(self.attention+self.num_add_features,self.neurons)
 
-           
-            # ============= VAE part
-
-
-            self.encoder =torch.nn.Sequential(  
+            # ============= VAE part: start ================ #
+            self.encoder =torch.nn.Sequential(
                  nn.Linear(self.input_size,1024),
                  nn.Sigmoid(),
                  nn.Linear(1024,512 ),
                  nn.Sigmoid()
-                
-                 
             )
 
-
-            ### encoder with additional features
-
-            # self.decoder =torch.nn.Sequential(  
-            #      torch.nn.Linear(input_size, 1000),
-            #      nn.Sigmoid(),
-            #      nn.Linear(1000, 200 ),
-            #      nn.Sigmoid(),
-            #      nn.Linear(, self.attention)
-            # )
-            ###############"" variational part 
             self.get_mu=torch.nn.Sequential(
                 nn.Linear(512, self.attention)
             )
             self.get_logvar = torch.nn.Sequential(
                 nn.Linear(512, self.features_space_size)
             )
-
             self.get_temp=torch.nn.Sequential(
                 nn.Linear(self.features_space_size, self.attention*self.features_space_size )
             )
+            # ============= VAE part: stop ================ #
 
-            
-
-            # VAE ici!
-            # =============
             self.fc_out = nn.Linear(self.neurons,1)
             self.relu = nn.ReLU()
             self.sigmoid = nn.Sigmoid()
             self.dropout = nn.Dropout(self.p)
 
-
-
         def get_z(self,mu,logvar):
-            eps=torch.randn(198,self.attention)#64,32
-            #print('eps',eps.shape)
+            eps=torch.randn(198,self.attention)
             eps=torch.autograd.Variable(eps)
             z=mu+eps*torch.exp(logvar/2)
-
             return z
 
-
-
         def forward(self, in_features,add_features):
-            """
-            if self.lymph_count:
-                  
-                out1=self.encoder1(complete_features)
-
-                mu=self.get_mu(out1.view(out1.size(0),-1))#64,128*7*7->64,32
-          
-                out2=self.encoder1(x)
-            
-                logvar=self.get_logvar(out2.view(out2.size(0),-1))
-
-                z=self.get_z(mu,logvar)
-
-
-            else:
-                complete_features =in_features
-                out1=self.encoder2(complete_features)
-
-                mu=self.get_mu(out1.view(out1.size(0),-1))#64,128*7*7->64,32
-           
-                out2=self.encoder2(x)
-            
-                logvar=self.get_logvar(out2.view(out2.size(0),-1))
-
-                z=self.get_z(mu,logvar)
-            
-
-            MIL_features = self.fc11(z(-1,1))
-            ##############################################################"" go in deepMIL
-            #MIL_features = self.fc1(in_features.transpose(-1,1))
-            """
-################## mettre le VAE la?
-            #print(in_features.shape,in_features.transpose(-1,1).shape)
-            
-            #print(MIL_features.shape) # qui est le poinds qui est le bon 
-            #print(in_features.transpose(-1,1).shape)
+            # VAE part
             out1=self.encoder(in_features.transpose(-1,1))
             out2=self.encoder(in_features.transpose(-1,1))
-            #print('out1',out1.shape)
 
             mu=self.get_mu(out1)
+            logvar=self.get_logvar(out2)
 
-            logvar=self.get_logvar(out2) 
-            #print(mu.shape,logvar.shape)
-            z=self.get_z(mu,logvar)  # 128*198
-            #print('z',z.shape)
-            #tmp=self.get_temp(z).view(z.size(0),self.attention,self.features_space_size)
-            #print('tmp',tmp.shape)
-            #MIL_features_auto=self.decoder(tmp)
+            z=self.get_z(mu,logvar)
 
             # attention mecanism
             MIL_features = self.fc1(in_features.transpose(-1,1))
@@ -236,12 +156,12 @@ class auto_DeepMIL(torch.nn.Module):
             A = torch.transpose(A, 1, -1)
             A = F.softmax(A, dim=-1)
 
-            # multiplication with new features sampled
+            # multiplication with new sampled features
             M = torch.matmul(A, z)
+
             if self.lymph_count:
                 features_lymp=add_features.reshape(-1,1,self.num_add_features)
                 M = torch.cat((M,features_lymp),dim=2)
-               # print(M.shape)
 
             x = self.fc2(M)
             x = self.relu(x)
