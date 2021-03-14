@@ -1,7 +1,7 @@
-# DLMI Data Challenge: Diagnosis of Lymphocytosis via Multiple Instance Learning
+# Diagnosis of Lymphocytosis via Multiple Instance Learning
+DLMI Data Challenge: https://www.kaggle.com/c/3md3070-dlmi/overview 
+Julia LINHART & Pierre CLAVIER
 MVA 2020/21 - ENS Paris-Saclay
-
-https://www.kaggle.com/c/3md3070-dlmi/overview 
 
 ## Overview:
 This repository contains the PyTorch implementation of our solution to the above stated Data Challenge. Our models, methods and results are detailed and explained in the provided report. Our solution contains the following steps:
