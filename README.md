@@ -1,6 +1,8 @@
 # Diagnosis of Lymphocytosis via Multiple Instance Learning
 DLMI Data Challenge: https://www.kaggle.com/c/3md3070-dlmi/overview 
+
 Team Name: Juju & Pedro
+
 Julia LINHART & Pierre CLAVIER
 
 MVA 2020/21 - ENS Paris-Saclay
