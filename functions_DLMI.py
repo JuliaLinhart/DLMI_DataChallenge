@@ -321,7 +321,7 @@ def preprocess(data):
 ########################### VAE ############################
 
 
-def train_auto_DMIL(model, train_loader, val_loader, criterion, optimizer, scheduler, n_epochs):
+def train_auto_DMIL(model, train_loader, val_loader, criterion, optimizer, scheduler, n_epochs, kl_reg):
     """
     train the model
 
@@ -352,7 +352,7 @@ def train_auto_DMIL(model, train_loader, val_loader, criterion, optimizer, sched
             output,z,mu,logvar = model(x,features)
             output=output[:,0]
             # KullbackLeiblei divergence for VAE
-            KLD=-0.5*torch.sum(1+logvar-mu.pow(2)-logvar.exp())
+            KLD=-kl_reg*torch.sum(1+logvar-mu.pow(2)-logvar.exp())
             # Loss computation
             loss = criterion(output,target)  + KLD
             # Backpropagation (gradient computation)
@@ -364,8 +364,8 @@ def train_auto_DMIL(model, train_loader, val_loader, criterion, optimizer, sched
         # learning rate step
         scheduler.step()
 
-        _, train_metrics = test_auto_DMIL(model, train_loader, criterion)
-        _, val_metrics = test_auto_DMIL(model, val_loader, criterion)
+        _, train_metrics = test_auto_DMIL(model, train_loader, criterion, kl_reg)
+        _, val_metrics = test_auto_DMIL(model, val_loader, criterion, kl_reg)
 
         print('Epoch %i/%i: train loss = %f, train BA = %f, val loss = %f, val BA = %f'
               % (epoch, n_epochs,train_metrics['mean_loss'],
@@ -388,7 +388,7 @@ def train_auto_DMIL(model, train_loader, val_loader, criterion, optimizer, sched
     return best_model, metrics
 
 
-def test_auto_DMIL(model, data_loader, criterion,test=False):
+def test_auto_DMIL(model, data_loader, criterion, kl_reg, test=False):
     """
     Evaluate/ test model
 
@@ -417,7 +417,7 @@ def test_auto_DMIL(model, data_loader, criterion,test=False):
                 outputs,z,mu,logvar= model(x,features)
                 outputs=outputs[:,0]
                 # KullbackLeiblei divergence for VAE
-                KLD=-0.5*torch.sum(1+logvar-mu.pow(2)-logvar.exp())
+                KLD=-kl_reg*torch.sum(1+logvar-mu.pow(2)-logvar.exp())
                 loss = criterion(outputs, labels) +KLD
                 total_loss += loss.item()
             else:

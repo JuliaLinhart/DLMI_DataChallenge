@@ -41,6 +41,8 @@ parser.add_argument("--model", required=True, type=str,
                     help="chosen model (CHOWDER or DeepMIL, auto_DeepMIL)")
 parser.add_argument("--lymph_count_features", default=False, type=bool,
                     help="add lymph count features")
+parser.add_argument("--reg_kl", default=0.5, type=float,
+                    help="KL-divergence regulation for VAE")
 
 
 parser.add_argument("--name", required=True, type=str,
@@ -134,12 +136,13 @@ if __name__ == "__main__":
     elif args.model == 'DeepMIL':
         print('DeepMIL Model parameters: batch_size = {}, lr = {}, weight_decay {}'.format(args.batch_size,args.lr,args.weight_decay))
     elif args.model == 'auto_DeepMIL':
-        print('auto_DeepMIL Model parameters: batch_size = {}, lr = {}, weight_decay {}'.format(args.batch_size,args.lr,args.weight_decay))
+        print('auto_DeepMIL Model parameters: batch_size = {}, lr = {}, weight_decay {}, kl_reg = {}'.format(args.batch_size,args.lr,args.weight_decay,args.reg_kl))
     print()
     print()
 
     # train and evaluate chowder-ensemble model
     ensemble_probs = np.zeros(len(dataset_test))
+    val_ba = 0
 
     for i in range(args.n_models):
         #define model
@@ -154,7 +157,7 @@ if __name__ == "__main__":
 
         criterion = nn.BCELoss()
         optimizer = torch.optim.Adam(model.parameters(),lr=args.lr,weight_decay=args.weight_decay)
-        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.6)
+        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.6)
 
         #train model
         print('Training model {}/{} ...'.format(i,args.n_models-1))
@@ -164,11 +167,24 @@ if __name__ == "__main__":
         elif args.model == 'DeepMIL':
             best_model,metrics = train_DMIL(model, train_loader, val_loader, criterion, optimizer, scheduler, n_epochs=args.num_epochs)
         elif args.model == 'auto_DeepMIL':
-            best_model,metrics = train_auto_DMIL(model, train_loader, val_loader, criterion, optimizer, scheduler, n_epochs=args.num_epochs)
+            best_model,metrics = train_auto_DMIL(model, train_loader, val_loader, criterion, optimizer, scheduler, n_epochs=args.num_epochs, kl_reg = args.reg_kl)
         else:
             print('model not defined')
 
         print('Model {} successfully trained'.format(i))
+
+        # evaluate model on val set
+        print('Inference on val set...')
+        if args.model == 'CHOWDER':
+           results_df, val_metrics = test_ch(best_model,val_loader,criterion,reg_lambda=args.reg_lambda)
+        elif args.model == 'DeepMIL':
+           results_df, val_metrics = test_DMIL(best_model,val_loader,criterion)
+
+        elif args.model == 'auto_DeepMIL':
+           results_df, val_metrics = test_auto_DMIL(best_model,val_loader,criterion,kl_reg=args.reg_kl)
+        else:
+           print('model not defined')
+        val_ba+=val_metrics["balanced_accuracy"]
 
         # evaluate model on test set
         print('Inference on test set...')
@@ -178,7 +194,7 @@ if __name__ == "__main__":
            results_df, _ = test_DMIL(best_model,test_loader,criterion,test=True)
 
         elif args.model == 'auto_DeepMIL':
-           results_df, _ = test_auto_DMIL(best_model,test_loader,criterion,test=True)
+           results_df, _ = test_auto_DMIL(best_model,test_loader,criterion,kl_reg=args.reg_kl,test=True)
         else:
            print('model not defined')
 
@@ -187,6 +203,8 @@ if __name__ == "__main__":
         probs = results_df['proba']
         ensemble_probs=ensemble_probs+probs
     preds_test = ensemble_probs/args.n_models
+    val_ba = val_ba/args.n_models
+    print("ensemble Val BA = {}".format(val_ba))
 
     #save train/val history of one model
     history = pd.DataFrame.from_dict(metrics)
@@ -204,5 +222,5 @@ if __name__ == "__main__":
     test_output = pd.DataFrame({"ID": ids_number_test, "Predicted": np.round(preds_test)})
     test_output = test_output.astype({"ID": str, "Predicted": int})
     test_output.set_index("ID", inplace=True)
-    test_output.to_csv(args.save_dir / "preds_test_DeepMIL_E1_n100.csv")
+    test_output.to_csv("preds_test_DeepMIL_AF_E10_3.csv")#args.save_dir /
     print('Results saved!')
